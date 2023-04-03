@@ -14,7 +14,7 @@
                 "-lsfml-graphics",
                 "-lsfml-system",
                 "-O3",
-                "-msse4.1", "-msse4.2", "-mavx2"
+                "-mavx2"
             ],
             "options": {
                 "cwd": "${fileDirname}"
