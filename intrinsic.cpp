@@ -37,7 +37,7 @@ int main(){
     float scalefactor = 150;
     sf::RenderWindow window(sf::VideoMode(win_w, win_h), "fractal");
 
-    uint32_t* texture_mem = (uint32_t*)calloc(win_h * win_w, sizeof(*texture_mem));
+    uint32_t* texture_mem = (uint32_t*)aligned_alloc(256, win_h * win_w * sizeof(*texture_mem));
     sf::Texture texture;
     texture.create(win_w, win_h);
     sf::Sprite sprite (texture);
@@ -115,7 +115,8 @@ int main(){
                                      2/scalefactor,
                                      1/scalefactor,
                                      0
-                                                    );   
+                                                    );
+        m256_pu32 color_mask = _mm256_set1_epi32(0xFFFF0000);
 
         for (int x = 0; x < win_h; x++){
             for (int y = 0; y < win_w; y+= mtype_size_s){
@@ -157,11 +158,9 @@ int main(){
                     cy = _mm256_add_ps(cy, y0);
                     cx = nx;
                 }
-
-                for (int i = 0; i < mtype_size_s; i++){
-                    texture_mem[mem_pos + i] = itermask.arr[i] ? 0xFF000000 : (0xFFFF0000 | iterc.arr[i]);
-                }
-
+                m256_pu32 new_col = _mm256_add_epi32(color_mask, iterc);
+                new_col = _mm256_andnot_si256(itermask, new_col);
+                _mm256_store_si256((__m256i *)(texture_mem + mem_pos), new_col);
             }
         }
         totaltime = timer.getElapsedTime().asMilliseconds();
