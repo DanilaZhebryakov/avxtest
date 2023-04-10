@@ -21,8 +21,6 @@ union m256_pu32{
     m256_pu32(__m256i val): intr((__m256_u)val) {}
     operator __m256_u() const {return this->intr; }
     operator __m256i () const {return (__m256i)this->intr; }
-    //explicit m256_pu32(__m256 val  ): intr(val) {}
-    //explicit operator __m256() const {return this->intr; }
 };
 
 int main(){
@@ -135,18 +133,8 @@ int main(){
                     m256_ps range = _mm256_mul_ps(cx, cx);
                     range = _mm256_add_ps(range, _mm256_mul_ps(cy, cy));
                     itermask = _mm256_and_si256(itermask, (__m256i)_mm256_cmp_ps(mrange_max, range, 14));
-                    /*
-                    for(int j = 0; j < 8; j++) printf("%X ", itermask.arr[j]);
-                    printf("---\n");*/
+
                     if (_mm256_testz_ps(itermask, itermask)){
-                        /*
-                        for(int j = 0; j < 8; j++) printf("%g ", cx.arr[j]);
-                        printf(" | ");
-                        for(int j = 0; j < 8; j++) printf("%g ", cy.arr[j]);
-                        printf(" | ");
-                        for(int j = 0; j < 8; j++) printf("%d ", iterc.arr[j]);
-                        printf("\n");
-                        */
                         break;
                     }
                     iterc = _mm256_sub_epi32(iterc, itermask);
