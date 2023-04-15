@@ -3,12 +3,30 @@
 #include <string>
 #include <SFML/Graphics.hpp>
 
+void drawMandelbrot(uint32_t* draw_buffer, int win_h ,int win_w, float origin_x, float origin_y, float scalefactor){
+    const int max_iter = 256;
+    const float radius = 100;
+    for(int x = 0; x < win_h; x++){
+        for(int y = 0; y < win_w; y++){
+            draw_buffer[x * win_w + y] = 0xFF000000;
+            float x0 = origin_x + (x - win_h/2) / scalefactor, y0 = origin_y + (y - win_w/2) / scalefactor;
+            float cx = x0, cy = y0;
+            for(int i = 0; i < max_iter; i++){
+                if (cx*cx + cy*cy > radius){
+                    draw_buffer[x * win_w + y] = 0xFFFF0000 + i;
+                    break;
+                }
+                float nx = (cx*cx - cy*cy) + x0;
+                cy = 2*cx*cy + y0;
+                cx = nx; 
+            }
+        }
+    }
+}
 
 int main(){
     const int win_h = 600;
     const int win_w = 600;
-    const int max_iter = 256;
-    const float radius = 100;
     const int movement_div = 5;
 
     float origin_x = 0;
@@ -83,23 +101,7 @@ int main(){
         window.display();
 
         sfmltime = timer.getElapsedTime().asMilliseconds();
-
-        for(int x = 0; x < win_h; x++){
-            for(int y = 0; y < win_w; y++){
-                texture_mem[x * win_w + y] = 0xFF000000;
-                float x0 = origin_x + (x - win_h/2) / scalefactor, y0 = origin_y + (y - win_w/2) / scalefactor;
-                float cx = x0, cy = y0;
-                for(int i = 0; i < max_iter; i++){
-                    if (cx*cx + cy*cy > radius){
-                        texture_mem[x * win_w + y] = 0xFFFF0000 + i;
-                        break;
-                    }
-                    float nx = (cx*cx - cy*cy) + x0;
-                    cy = 2*cx*cy + y0;
-                    cx = nx; 
-                }
-            }
-        }
+        drawMandelbrot(texture_mem, win_h, win_w, origin_x, origin_y, scalefactor);        
         totaltime = timer.getElapsedTime().asMilliseconds();
     }
 

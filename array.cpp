@@ -97,15 +97,56 @@ inline m256_pu32 m256_set1_pu32(uint32_t val){
     return res;    
 }
 
+void drawMandelbrot(uint32_t* draw_buffer, int win_h ,int win_w, float origin_x, float origin_y, float scalefactor){
+    const int max_iter = 255;
+    const float radius = 100;    
+    const int mtype_size_s = 8;
 
+    m256_ps offs;
+    for (int i = 0; i < mtype_size_s; i++) offs.arr[i] = i/scalefactor;        
+
+    for (int x = 0; x < win_h; x++){
+        for (int y = 0; y < win_w; y+= mtype_size_s){
+            int mem_pos = x*win_w + y;
+            m256_ps x0 = m256_set1_ps(origin_x + (x - (win_h/2)) / scalefactor);
+            m256_ps y0 = m256_set1_ps(origin_y + (y - (win_w/2)) / scalefactor);
+            y0 = m256_add_ps(y0, offs);
+
+            m256_ps cx = x0;
+            m256_ps cy = y0;
+            m256_ps mrange_max = m256_set1_ps(radius);
+            m256_pu32 iterc = m256_set1_pu32(0);
+            m256_pu32 itermask = m256_set1_pu32(0xFFFFFFFF);
+            //printf("----------\n");
+            for (int i = 0; i < max_iter; i++){
+                m256_ps range = m256_mul_ps(cx, cx);
+                range = m256_add_ps(range, m256_mul_ps(cy, cy));
+                itermask = m256_and_pi32(itermask, m256_cmpgt_ps(mrange_max, range));
+                if (m256_testz_ps(itermask, itermask)){
+                    break;
+                }
+                iterc = m256_sub_pi32(iterc, itermask);
+
+                m256_ps nx = m256_sub_ps(m256_mul_ps(cx,cx), m256_mul_ps(cy,cy));
+                nx = m256_add_ps(nx, x0);
+                cy = m256_mul_ps(cx,cy);
+                cy = m256_add_ps(cy, cy);
+                cy = m256_add_ps(cy, y0);
+                cx = nx;
+            }
+
+            for (int i = 0; i < mtype_size_s; i++){
+                draw_buffer[mem_pos + i] = itermask.arr[i] ? 0xFF000000 : (0xFFFF0000 | iterc.arr[i]);
+            }
+        }
+    }
+}
 
 
 
 int main(){
     const int win_h = 600;
     const int win_w = 600;
-    const int max_iter = 255;
-    const float radius = 100;
     const int movement_div = 5;
 
     float origin_x = 0;
@@ -180,47 +221,7 @@ int main(){
         window.draw(time_text);
         window.display();
         sfmltime = timer.getElapsedTime().asMilliseconds();
-
-        const int mtype_size_s = 8;
-
-        m256_ps offs;
-        for (int i = 0; i < mtype_size_s; i++) offs.arr[i] = i/scalefactor;        
-
-        for (int x = 0; x < win_h; x++){
-            for (int y = 0; y < win_w; y+= mtype_size_s){
-                int mem_pos = x*win_w + y;
-                m256_ps x0 = m256_set1_ps(origin_x + (x - (win_h/2)) / scalefactor);
-                m256_ps y0 = m256_set1_ps(origin_y + (y - (win_w/2)) / scalefactor);
-                y0 = m256_add_ps(y0, offs);
-
-                m256_ps cx = x0;
-                m256_ps cy = y0;
-                m256_ps mrange_max = m256_set1_ps(radius);
-                m256_pu32 iterc = m256_set1_pu32(0);
-                m256_pu32 itermask = m256_set1_pu32(0xFFFFFFFF);
-                //printf("----------\n");
-                for (int i = 0; i < max_iter; i++){
-                    m256_ps range = m256_mul_ps(cx, cx);
-                    range = m256_add_ps(range, m256_mul_ps(cy, cy));
-                    itermask = m256_and_pi32(itermask, m256_cmpgt_ps(mrange_max, range));
-                    if (m256_testz_ps(itermask, itermask)){
-                        break;
-                    }
-                    iterc = m256_sub_pi32(iterc, itermask);
-
-                    m256_ps nx = m256_sub_ps(m256_mul_ps(cx,cx), m256_mul_ps(cy,cy));
-                    nx = m256_add_ps(nx, x0);
-                    cy = m256_mul_ps(cx,cy);
-                    cy = m256_add_ps(cy, cy);
-                    cy = m256_add_ps(cy, y0);
-                    cx = nx;
-                }
-
-                for (int i = 0; i < mtype_size_s; i++){
-                    texture_mem[mem_pos + i] = itermask.arr[i] ? 0xFF000000 : (0xFFFF0000 | iterc.arr[i]);
-                }
-            }
-        }
+        drawMandelbrot(texture_mem, win_h, win_w, origin_x, origin_y, scalefactor);
         totaltime = timer.getElapsedTime().asMilliseconds();
     }
 

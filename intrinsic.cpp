@@ -4,7 +4,6 @@
 #include <SFML/Graphics.hpp>
 #include <immintrin.h>
 
-
 union m256_ps{
     float arr[8];
     __m256 intr;
@@ -23,11 +22,62 @@ union m256_pu32{
     operator __m256i () const {return (__m256i)this->intr; }
 };
 
+void drawMandelbrot(uint32_t* draw_buffer, int win_h ,int win_w, float origin_x, float origin_y, float scalefactor){
+    const int max_iter = 255;
+    const float radius = 100;
+    const int mtype_size_s = 8;
+
+    m256_ps offs = _mm256_set_ps(7/scalefactor,
+                                 6/scalefactor,
+                                 5/scalefactor,
+                                 4/scalefactor,
+                                 3/scalefactor,
+                                 2/scalefactor,
+                                 1/scalefactor,
+                                 0
+                                );
+    m256_pu32 color_mask = _mm256_set1_epi32(0xFFFF0000);
+
+    for (int x = 0; x < win_h; x++){
+        for (int y = 0; y < win_w; y+= mtype_size_s){
+            int mem_pos = x*win_w + y;
+            m256_ps x0 = _mm256_set1_ps(origin_x + (x - (win_h/2)) / scalefactor);
+            m256_ps y0 = _mm256_set1_ps(origin_y + (y - (win_w/2)) / scalefactor);
+            y0 = _mm256_add_ps(y0, offs);
+
+            m256_ps cx = x0;
+            m256_ps cy = y0;
+            m256_ps mrange_max = _mm256_set1_ps(radius);
+            m256_pu32 iterc = _mm256_set1_epi32(0);
+            m256_pu32 itermask = _mm256_set1_epi32(-1); //=0xFFFFFFFF
+
+            for (int i = 0; i < max_iter; i++){
+                m256_ps range = _mm256_mul_ps(cx, cx);
+                range = _mm256_add_ps(range, _mm256_mul_ps(cy, cy));
+                itermask = _mm256_and_si256(itermask, (__m256i)_mm256_cmp_ps(mrange_max, range, 14));
+
+                if (_mm256_testz_ps(itermask, itermask)){
+                    break;
+                }
+                iterc = _mm256_sub_epi32(iterc, itermask);
+                    
+                m256_ps nx = _mm256_sub_ps(_mm256_mul_ps(cx,cx), _mm256_mul_ps(cy,cy));
+                nx = _mm256_add_ps(nx, x0); 
+                cy = _mm256_mul_ps(cx,cy);
+                cy = _mm256_add_ps(cy, cy);
+                cy = _mm256_add_ps(cy, y0);
+                cx = nx;
+            }
+            m256_pu32 new_col = _mm256_add_epi32(color_mask, iterc);
+            new_col = _mm256_andnot_si256(itermask, new_col);
+            _mm256_store_si256((__m256i *)(draw_buffer + mem_pos), new_col);
+        }
+    }
+}
+
 int main(){
     const int win_h = 600;
     const int win_w = 600;
-    const int max_iter = 255;
-    const float radius = 100;
     const int movement_div = 5;
 
     float origin_x = 0;
@@ -102,55 +152,7 @@ int main(){
         window.draw(time_text);
         window.display();
         sfmltime = timer.getElapsedTime().asMilliseconds();
-
-        const int mtype_size_s = 8;
-
-        m256_ps offs = _mm256_set_ps(7/scalefactor,
-                                     6/scalefactor,
-                                     5/scalefactor,
-                                     4/scalefactor,
-                                     3/scalefactor,
-                                     2/scalefactor,
-                                     1/scalefactor,
-                                     0
-                                                    );
-        m256_pu32 color_mask = _mm256_set1_epi32(0xFFFF0000);
-
-        for (int x = 0; x < win_h; x++){
-            for (int y = 0; y < win_w; y+= mtype_size_s){
-                int mem_pos = x*win_w + y;
-                m256_ps x0 = _mm256_set1_ps(origin_x + (x - (win_h/2)) / scalefactor);
-                m256_ps y0 = _mm256_set1_ps(origin_y + (y - (win_w/2)) / scalefactor);
-                y0 = _mm256_add_ps(y0, offs);
-
-                m256_ps cx = x0;
-                m256_ps cy = y0;
-                m256_ps mrange_max = _mm256_set1_ps(radius);
-                m256_pu32 iterc = _mm256_set1_epi32(0);
-                m256_pu32 itermask = _mm256_set1_epi32(-1); //=0xFFFFFFFF
-                //printf("----------\n");
-                for (int i = 0; i < max_iter; i++){
-                    m256_ps range = _mm256_mul_ps(cx, cx);
-                    range = _mm256_add_ps(range, _mm256_mul_ps(cy, cy));
-                    itermask = _mm256_and_si256(itermask, (__m256i)_mm256_cmp_ps(mrange_max, range, 14));
-
-                    if (_mm256_testz_ps(itermask, itermask)){
-                        break;
-                    }
-                    iterc = _mm256_sub_epi32(iterc, itermask);
-                    
-                    m256_ps nx = _mm256_sub_ps(_mm256_mul_ps(cx,cx), _mm256_mul_ps(cy,cy));
-                    nx = _mm256_add_ps(nx, x0); 
-                    cy = _mm256_mul_ps(cx,cy);
-                    cy = _mm256_add_ps(cy, cy);
-                    cy = _mm256_add_ps(cy, y0);
-                    cx = nx;
-                }
-                m256_pu32 new_col = _mm256_add_epi32(color_mask, iterc);
-                new_col = _mm256_andnot_si256(itermask, new_col);
-                _mm256_store_si256((__m256i *)(texture_mem + mem_pos), new_col);
-            }
-        }
+        drawMandelbrot(texture_mem, win_h, win_w, origin_x, origin_y, scalefactor);
         totaltime = timer.getElapsedTime().asMilliseconds();
     }
 
