@@ -152,6 +152,7 @@ int main(){
         window.draw(time_text);
         window.display();
         sfmltime = timer.getElapsedTime().asMilliseconds();
+
         drawMandelbrot(texture_mem, win_h, win_w, origin_x, origin_y, scalefactor);
         totaltime = timer.getElapsedTime().asMilliseconds();
     }
